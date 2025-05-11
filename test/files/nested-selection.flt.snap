@@ -1,0 +1,10 @@
+import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
+export declare const resource: FluentResource;
+export declare type MessageSet = {
+    readonly cookies: {
+        readonly count: "one" | "other";
+        readonly day: "monday" | "other";
+    };
+};
+export declare type MessageId = keyof MessageSet;
+export declare function formatMessage<K extends MessageId>(bundle: FluentBundle, id: K, args: MessageSet[K], error?: null | Error[]): string;

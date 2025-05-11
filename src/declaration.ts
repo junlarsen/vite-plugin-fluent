@@ -1,11 +1,10 @@
 import {
   Identifier,
   Message,
-  type Pattern,
-  Placeable,
   type Resource,
-  SelectExpression,
+  type SelectExpression,
   VariableReference,
+  Visitor,
   parse,
 } from '@fluent/syntax';
 import * as ts from 'typescript';
@@ -141,8 +140,11 @@ export function createMessageType(
   if (message.value === null) {
     return null;
   }
-  const patternVariables = getPatternVariables(message.value);
-  const properties = patternVariables
+  const variables = new Map<string, ts.TypeNode>();
+  const visitor = new ExpressionVisitor(variables);
+  visitor.visit(message);
+
+  const properties = variables
     .entries()
     .map(([name, type]) => {
       return ts.factory.createPropertySignature(
@@ -162,63 +164,40 @@ export function createMessageType(
   );
 }
 
-function getPatternVariables(pattern: Pattern): Map<string, ts.TypeNode> {
-  const placeables = pattern.elements.filter(
-    (node) => node instanceof Placeable,
-  );
-  const variables = new Map<string, ts.TypeNode>();
-  for (const placeable of placeables) {
-    const expression = placeable.expression;
-    // If this is a select expression, we are only interested if the select
-    // value is a variable reference.
-    if (
-      expression instanceof SelectExpression &&
-      expression.selector instanceof VariableReference
-    ) {
-      const { type, patterns } = getSelectExpressionOptions(expression);
-      const name = expression.selector.id.name;
-      // TODO: Evaluate what to do with duplicate keys
-      variables.set(name, type);
-      // Flatten down the child patterns into a single map
-      for (const [key, value] of patterns) {
-        if (!variables.has(key)) {
-          variables.set(key, value);
-        }
-      }
-    } else if (expression instanceof VariableReference) {
-      const name = expression.id.name;
-      const type = ts.factory.createTypeReferenceNode('FluentVariable');
-      variables.set(name, type);
+class ExpressionVisitor extends Visitor {
+  public constructor(private readonly variables: Map<string, ts.TypeNode>) {
+    super();
+  }
+  visitVariableReference(node: VariableReference) {
+    const type = ts.factory.createTypeReferenceNode('FluentVariable');
+    const name = node.id.name;
+    if (!this.variables.has(name)) {
+      this.variables.set(name, type);
     }
   }
-  return variables;
-}
+  visitSelectExpression(node: SelectExpression) {
+    // If this value is guided by a variable, we create a union type of all the possible values
+    if (node.selector instanceof VariableReference) {
+      const unionMembers = node.variants.map((variant) =>
+        ts.factory.createLiteralTypeNode(
+          variant.key instanceof Identifier
+            ? ts.factory.createStringLiteral(variant.key.name)
+            : ts.factory.createNumericLiteral(variant.key.value),
+        ),
+      );
+      const union = ts.factory.createUnionTypeNode(unionMembers);
+      const name = node.selector.id.name;
+      if (!this.variables.has(name)) {
+        this.variables.set(name, union);
+      }
+    }
 
-function getSelectExpressionOptions(expression: SelectExpression) {
-  const options = expression.variants.map((variant) => {
-    const type = ts.factory.createLiteralTypeNode(
-      variant.key instanceof Identifier
-        ? ts.factory.createStringLiteral(variant.key.name)
-        : ts.factory.createNumericLiteral(variant.key.value),
-    );
-    const patterns = getPatternVariables(variant.value);
-    return { type, patterns };
-  });
-  // Compute a literal type union for the expression
-  const type = ts.factory.createUnionTypeNode(
-    options.map((option) => option.type),
-  );
-  // Flatten down the child patterns into a single map
-  const patterns = new Map<string, ts.TypeNode>();
-  for (const option of options) {
-    for (const [key, value] of option.patterns) {
-      // TODO: Consider what to do with duplicate keys
-      if (!patterns.has(key)) {
-        patterns.set(key, value);
-      }
+    // Traverse into the children of the select expression
+    super.visit(node.selector);
+    for (const variant of node.variants) {
+      super.visit(variant.value);
     }
   }
-  return { type, patterns };
 }
 
 /**
