@@ -1,0 +1,26 @@
+{
+  "name": "vite-plugin-fluent",
+  "version": "0.1.0-rc0",
+  "description": "Vite plugin for type-safe function code generation for Fluent Translation files",
+  "keywords": ["vite-plugin", "fluent", "i18n"],
+  "author": "Mats Jun Larsen <mats@jun.codes>",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "lint": "biome check . --write",
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "packageManager": "pnpm@10.7.1",
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.3"
+  }
+}
