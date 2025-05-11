@@ -1,9 +1,5 @@
 import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
 export declare const resource: FluentResource;
-export declare type MessageSet = {
-    readonly "narrow": {
-        readonly "count": "one" | "other";
-    };
-};
-export declare type MessageId = keyof MessageSet;
-export declare function formatMessage<K extends MessageId>(bundle: FluentBundle, id: K, args: MessageSet[K], error?: null | Error[]): string;
+export declare function formatMessage(bundle: FluentBundle, id: "narrow", args: {
+    readonly "count": "one" | "other";
+}, error?: null | Error[]): string;

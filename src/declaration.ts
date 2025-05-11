@@ -17,18 +17,10 @@ export function generateFluentDeclaration(fluent: string): ts.SourceFile {
   const tree = parse(fluent, { withSpans: true });
   const fluentImport = createFluentTypeImport();
   const resourceDeclaration = createResourceDeclarationExport();
-  const messageSetTypeDeclaration = createMessageSetTypeDeclaration(tree);
-  const messageIdTypeDeclaration = createMessageIdTypeDeclaration();
-  const formatMessageFunctionDeclaration =
-    createFormatMessageFunctionDeclaration();
+  const formatMessageFunctionOverloadList =
+    createFormatMessageFunctionOverloadList(tree);
   return ts.factory.createSourceFile(
-    [
-      fluentImport,
-      resourceDeclaration,
-      messageSetTypeDeclaration,
-      messageIdTypeDeclaration,
-      formatMessageFunctionDeclaration,
-    ],
+    [fluentImport, resourceDeclaration, ...formatMessageFunctionOverloadList],
     ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
     ts.NodeFlags.None,
   );
@@ -114,36 +106,33 @@ export function createResourceDeclarationExport() {
  * }
  * ```
  */
-export function createMessageSetTypeDeclaration(resource: Resource) {
+export function createFormatMessageFunctionOverloadList(resource: Resource) {
   const messages = resource.body.filter((entry) => entry instanceof Message);
-  const messageTypes = messages
+  return messages
     .map(createMessageType)
-    .filter((message) => message !== null);
-  const mappedType = ts.factory.createTypeLiteralNode(messageTypes);
-  return ts.factory.createTypeAliasDeclaration(
-    [
-      ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
-      ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword),
-    ],
-    'MessageSet',
-    [],
-    mappedType,
-  );
+    .filter((message) => message !== null)
+    .map(({ name, argumentType }) =>
+      createFormatMessageFunctionDeclaration(name, argumentType),
+    );
 }
 
 /**
  * Create the parameter type for a single message entry.
  */
-export function createMessageType(
-  message: Message,
-): ts.PropertySignature | null {
+export function createMessageType(message: Message) {
   if (message.value === null) {
     return null;
   }
+  const name = message.id.name;
+
   const variables = new Map<string, ts.TypeNode>();
   const visitor = new ExpressionVisitor(variables);
   visitor.visit(message);
-
+  // If there are no arguments, we can early return
+  if (variables.size === 0) {
+    return { argumentType: null, name };
+  }
+  // Otherwise, map out each variable to a property, and build the object
   const properties = variables
     .entries()
     .map(([name, type]) => {
@@ -156,12 +145,7 @@ export function createMessageType(
     })
     .toArray();
   const argumentType = ts.factory.createTypeLiteralNode(properties);
-  return ts.factory.createPropertySignature(
-    [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
-    ts.factory.createStringLiteral(message.id.name),
-    undefined,
-    argumentType,
-  );
+  return { argumentType, name };
 }
 
 type TypeMetadata = {
@@ -216,63 +200,28 @@ class ExpressionVisitor extends Visitor {
 }
 
 /**
- * Create the type for the message id.
- *
- * @example
- * ```
- * export declare type MessageId = keyof MessageSet
- * ```
- */
-export function createMessageIdTypeDeclaration() {
-  const messageSetReference = ts.factory.createTypeReferenceNode(
-    'MessageSet',
-    [],
-  );
-  const keyType = ts.factory.createTypeOperatorNode(
-    ts.SyntaxKind.KeyOfKeyword,
-    messageSetReference,
-  );
-  return ts.factory.createTypeAliasDeclaration(
-    [
-      ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
-      ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword),
-    ],
-    'MessageId',
-    [],
-    keyType,
-  );
-}
-
-/**
  * Create the function declaration for the `formatMessage` function.
  *
  * @example
  * ```
- * export declare function formatMessage<K extends MessageId>(
+ * export declare function formatMessage(
  *  bundle: FluentBundle,
- *  id: K,
- *  args: MessageSet[K],
+ *  id: <name>,
+ *  args: <type>,
  *  errors?: null | Error[],
  * ): string
  * ```
  */
-export function createFormatMessageFunctionDeclaration() {
-  // Generate the type parameter
-  const constraint = ts.factory.createTypeReferenceNode('MessageId', []);
-  const typeParameter = ts.factory.createTypeParameterDeclaration(
-    undefined,
-    'K',
-    constraint,
-  );
+export function createFormatMessageFunctionDeclaration(
+  name: string,
+  type: ts.TypeNode | null,
+) {
   // Generate all the parameters
   const bundleIdentifier = ts.factory.createIdentifier('bundle');
   const bundleType = ts.factory.createTypeReferenceNode('FluentBundle', []);
   const idIdentifier = ts.factory.createIdentifier('id');
-  const idType = ts.factory.createTypeReferenceNode('K', []);
-  const argsIdentifier = ts.factory.createIdentifier('args');
-  const argsType = ts.factory.createIndexedAccessTypeNode(
-    ts.factory.createTypeReferenceNode('MessageSet', []),
-    ts.factory.createTypeReferenceNode('K', []),
+  const idType = ts.factory.createLiteralTypeNode(
+    ts.factory.createStringLiteral(name),
   );
   const errorIdentifier = ts.factory.createIdentifier('error');
   const nullLiteralType = ts.factory.createLiteralTypeNode(
@@ -298,13 +247,6 @@ export function createFormatMessageFunctionDeclaration() {
     undefined,
     idType,
   );
-  const argsParameter = ts.factory.createParameterDeclaration(
-    undefined,
-    undefined,
-    argsIdentifier,
-    undefined,
-    argsType,
-  );
   const errorParameter = ts.factory.createParameterDeclaration(
     undefined,
     undefined,
@@ -312,6 +254,21 @@ export function createFormatMessageFunctionDeclaration() {
     ts.factory.createToken(ts.SyntaxKind.QuestionToken),
     errorType,
   );
+  // If the type is not null, we inject the args parameter.
+  const parameters = [bundleParameter, idParameter];
+  if (type !== null) {
+    const argsIdentifier = ts.factory.createIdentifier('args');
+    const argsParameter = ts.factory.createParameterDeclaration(
+      undefined,
+      undefined,
+      argsIdentifier,
+      undefined,
+      type,
+    );
+    parameters.push(argsParameter);
+  }
+  parameters.push(errorParameter);
+
   // Create the function itself
   return ts.factory.createFunctionDeclaration(
     [
@@ -320,8 +277,8 @@ export function createFormatMessageFunctionDeclaration() {
     ],
     undefined,
     'formatMessage',
-    [typeParameter],
-    [bundleParameter, idParameter, argsParameter, errorParameter],
+    [],
+    parameters,
     ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
     undefined,
   );

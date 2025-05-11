@@ -3,3 +3,4 @@ export declare const resource: FluentResource;
 export declare function formatMessage(bundle: FluentBundle, id: "greet", args: {
     readonly "name": FluentVariable;
 }, error?: null | Error[]): string;
+export declare function formatMessage(bundle: FluentBundle, id: "product-name", error?: null | Error[]): string;

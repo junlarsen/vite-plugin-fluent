@@ -1,9 +1,6 @@
 import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import {
-  createFormatMessageFunctionDeclaration,
-  createResourceDeclarationExport,
-} from '../src/declaration';
+import { createResourceDeclarationExport } from '../src/declaration';
 import {
   createFluentImport,
   createFormatMessageExport,
@@ -68,15 +65,6 @@ describe('createFormatMessageExport', () => {
           return bundle.formatPattern(bundle.getMessage(id).value, args, error);
       }"
     `,
-    );
-  });
-});
-
-describe('createFormatMessageFunctionDeclaration', () => {
-  it('can create the formatMessage function declaration', () => {
-    const node = createFormatMessageFunctionDeclaration();
-    expect(stringify(node)).toMatchInlineSnapshot(
-      `"export declare function formatMessage<K extends MessageId>(bundle: FluentBundle, id: K, args: MessageSet[K], error?: null | Error[]): string;"`,
     );
   });
 });
