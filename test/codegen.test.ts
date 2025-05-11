@@ -62,6 +62,8 @@ describe('createFormatMessageExport', () => {
     expect(stringify(node)).toMatchInlineSnapshot(
       `
       "export function formatMessage(bundle, id, args, error) {
+          if (args === null || Array.isArray(args))
+              return bundle.formatPattern(bundle.getMessage(id).value, {}, args);
           return bundle.formatPattern(bundle.getMessage(id).value, args, error);
       }"
     `,

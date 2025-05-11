@@ -103,6 +103,8 @@ export function createResourceExport(fluent: string) {
  * @example
  * ```
  * export function formatMessage(bundle, id, args, error) {
+ *   if (args === null || Array.isArray(args))
+ *     return bundle.formatPattern(bundle.getMessage(id), {}, args);
  *   return bundle.formatPattern(bundle.getMessage(id), args, error);
  * }
  * ```
@@ -156,9 +158,45 @@ export function createFormatMessageExport() {
     [],
     [valueOfInnerCall, argsIdentifier, errorIdentifier],
   );
+  // Create the if statement
+  const argsIsNull = ts.factory.createStrictEquality(
+    argsIdentifier,
+    ts.factory.createNull(),
+  );
+  const argsIsArray = ts.factory.createCallExpression(
+    ts.factory.createPropertyAccessExpression(
+      ts.factory.createIdentifier('Array'),
+      'isArray',
+    ),
+    [],
+    [argsIdentifier],
+  );
+  const argsIsNullOrArray = ts.factory.createBinaryExpression(
+    argsIsNull,
+    ts.SyntaxKind.BarBarToken,
+    argsIsArray,
+  );
+  const noArgsButErrorCall = ts.factory.createCallExpression(
+    ts.factory.createPropertyAccessExpression(
+      bundleIdentifier,
+      'formatPattern',
+    ),
+    [],
+    [
+      valueOfInnerCall,
+      ts.factory.createObjectLiteralExpression(),
+      argsIdentifier,
+    ],
+  );
+  const thenStatement = ts.factory.createReturnStatement(noArgsButErrorCall);
+  const ifStatement = ts.factory.createIfStatement(
+    argsIsNullOrArray,
+    thenStatement,
+    undefined,
+  );
   // Create the return statement
   const returnStatement = ts.factory.createReturnStatement(outerCall);
-  const block = ts.factory.createBlock([returnStatement], true);
+  const block = ts.factory.createBlock([ifStatement, returnStatement], true);
   const functionName = ts.factory.createIdentifier('formatMessage');
   return ts.factory.createFunctionDeclaration(
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],

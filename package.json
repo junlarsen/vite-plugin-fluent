@@ -25,7 +25,9 @@
   },
   "packageManager": "pnpm@10.7.1",
   "devDependencies": {
+    "@fluent/bundle": "^0.19.1",
     "@biomejs/biome": "^1.9.4",
+    "module-from-string": "^3.3.1",
     "typescript": "^5.8.3",
     "vitest": "^3.1.3"
   },
