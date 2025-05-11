@@ -1,0 +1,24 @@
+{
+  "name": "vite-plugin-fluent-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fluent/bundle": "^0.19.1"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-fluent": "link:.."
+  },
+  "pnpm": {
+    "overrides": {
+      "vite-plugin-fluent": "link:.."
+    }
+  }
+}

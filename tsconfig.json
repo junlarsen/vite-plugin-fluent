@@ -3,7 +3,7 @@
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
-    "lib": ["esnext"],
+    "lib": ["esnext", "dom"],
     "strict": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
@@ -11,5 +11,5 @@
     "allowSyntheticDefaultImports": true,
     "outDir": "./dist"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["./src/**/*.ts", "./test/**/*.ts"]
 }
