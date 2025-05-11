@@ -65,12 +65,12 @@ narrow the type down to the alternatives presented in the selector.
 ```ftl
 apples = I have { $count ->
     [one] one apple
-   *[other] { $count } apples
+   *[many] { $count } apples
 }
 ```
 
 ```ts
-// count is narrowed to the type 'one' | 'other'
+// count is narrowed to the type 'one' | 'many'
 formatMessage(bundle, "apples", { count: "one" });
 ```
 
