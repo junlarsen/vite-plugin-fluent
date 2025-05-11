@@ -7,6 +7,7 @@ import { transformFluentFile } from '../src/transform';
 const source = `
 hello = Hello world!
 with-args = Hello { $name }!
+    .with-attr = Hello again!
 `;
 const sourceFile = transformFluentFile(source);
 const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
@@ -38,5 +39,12 @@ describe('runtime code', () => {
     const errors = [] as Error[];
     const output = module.formatMessage(bundle, 'hello', errors);
     expect(output).toMatchInlineSnapshot(`"Hello world!"`);
+  });
+
+  it('can read attributes', () => {
+    const output = module.formatMessage(bundle, 'with-args.with-attr', {
+      name: 'John',
+    });
+    expect(output).toMatchInlineSnapshot(`"Hello again!"`);
   });
 });

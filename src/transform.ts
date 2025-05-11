@@ -103,9 +103,16 @@ export function createResourceExport(fluent: string) {
  * @example
  * ```
  * export function formatMessage(bundle, id, args, error) {
+ *   const attrIndex = id.indexOf('.');
+ *   const isAttribute = attrIndex > -1;
+ *   const messageId = isAttribute ? id.slice(0, attrIndex) : id;
+ *   const message = bundle.getMessage(id);
+ *   const pattern = isAttribute
+ *     ? message.attributes[id.slice(attrIndex + 1)]
+ *     : message.value;
  *   if (args === null || Array.isArray(args))
- *     return bundle.formatPattern(bundle.getMessage(id), {}, args);
- *   return bundle.formatPattern(bundle.getMessage(id), args, error);
+ *     return bundle.formatPattern(pattern, {}, args);
+ *   return bundle.formatPattern(pattern, args, error);
  * }
  * ```
  */
@@ -134,19 +141,141 @@ export function createFormatMessageExport() {
     undefined,
     errorIdentifier,
   );
-  // Create the inner function call
-  const innerCallee = ts.factory.createPropertyAccessExpression(
+  // Create the attrIndex variable
+  const attrIndexIdentifier = ts.factory.createIdentifier('attrIndex');
+  const attrIndexCallee = ts.factory.createPropertyAccessExpression(
+    idIdentifier,
+    'indexOf',
+  );
+  const attrIndexCall = ts.factory.createCallExpression(
+    attrIndexCallee,
+    [],
+    [ts.factory.createStringLiteral('.')],
+  );
+  const attrIndexDeclaration = ts.factory.createVariableDeclaration(
+    'attrIndex',
+    undefined,
+    undefined,
+    attrIndexCall,
+  );
+  const attrIndexVariableStatement = ts.factory.createVariableStatement(
+    [],
+    ts.factory.createVariableDeclarationList(
+      [attrIndexDeclaration],
+      ts.NodeFlags.Const,
+    ),
+  );
+  // Create the isAttribute variable
+  const isAttributeIdentifier = ts.factory.createIdentifier('isAttribute');
+  const isAttributeCall = ts.factory.createBinaryExpression(
+    attrIndexIdentifier,
+    ts.SyntaxKind.GreaterThanToken,
+    ts.factory.createPrefixMinus(ts.factory.createNumericLiteral(1)),
+  );
+  const isAttributeDeclaration = ts.factory.createVariableDeclaration(
+    isAttributeIdentifier,
+    undefined,
+    undefined,
+    isAttributeCall,
+  );
+  const isAttributeVariableStatement = ts.factory.createVariableStatement(
+    [],
+    ts.factory.createVariableDeclarationList(
+      [isAttributeDeclaration],
+      ts.NodeFlags.Const,
+    ),
+  );
+  // Create the messageId variable
+  const messageIdIdentifier = ts.factory.createIdentifier('messageId');
+  const messageIdCallee = ts.factory.createPropertyAccessExpression(
+    idIdentifier,
+    'slice',
+  );
+  const messageIdCall = ts.factory.createCallExpression(
+    messageIdCallee,
+    [],
+    [ts.factory.createNumericLiteral(0), attrIndexIdentifier],
+  );
+  const messageIdDeclaration = ts.factory.createVariableDeclaration(
+    messageIdIdentifier,
+    undefined,
+    undefined,
+    ts.factory.createConditionalExpression(
+      isAttributeIdentifier,
+      ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+      messageIdCall,
+      ts.factory.createToken(ts.SyntaxKind.ColonToken),
+      idIdentifier,
+    ),
+  );
+  const messageIdVariableStatement = ts.factory.createVariableStatement(
+    [],
+    ts.factory.createVariableDeclarationList(
+      [messageIdDeclaration],
+      ts.NodeFlags.Const,
+    ),
+  );
+  // Create the message variable
+  const messageIdentifier = ts.factory.createIdentifier('message');
+  const messageCallee = ts.factory.createPropertyAccessExpression(
     bundleIdentifier,
     'getMessage',
   );
-  const innerCall = ts.factory.createCallExpression(
-    innerCallee,
+  const messageCall = ts.factory.createCallExpression(
+    messageCallee,
     [],
-    [idIdentifier],
+    [messageIdIdentifier],
   );
-  const valueOfInnerCall = ts.factory.createPropertyAccessExpression(
-    innerCall,
-    'value',
+  const messageDeclaration = ts.factory.createVariableDeclaration(
+    messageIdentifier,
+    undefined,
+    undefined,
+    messageCall,
+  );
+  const messageVariableStatement = ts.factory.createVariableStatement(
+    [],
+    ts.factory.createVariableDeclarationList(
+      [messageDeclaration],
+      ts.NodeFlags.Const,
+    ),
+  );
+  // Create the indexOf check
+  const attrIndexPlusOne = ts.factory.createBinaryExpression(
+    attrIndexIdentifier,
+    ts.SyntaxKind.PlusToken,
+    ts.factory.createNumericLiteral(1),
+  );
+  const attrSlice = ts.factory.createCallExpression(
+    ts.factory.createPropertyAccessExpression(idIdentifier, 'slice'),
+    [],
+    [attrIndexPlusOne],
+  );
+  const patternIdentifier = ts.factory.createIdentifier('pattern');
+  const attrValue = ts.factory.createConditionalExpression(
+    isAttributeIdentifier,
+    ts.factory.createToken(ts.SyntaxKind.QuestionToken),
+    ts.factory.createElementAccessExpression(
+      ts.factory.createPropertyAccessExpression(
+        messageIdentifier,
+        'attributes',
+      ),
+      attrSlice,
+    ),
+    ts.factory.createToken(ts.SyntaxKind.ColonToken),
+    ts.factory.createPropertyAccessExpression(messageIdentifier, 'value'),
+  );
+  const attrDeclaration = ts.factory.createVariableDeclaration(
+    patternIdentifier,
+    undefined,
+    undefined,
+    attrValue,
+  );
+  const patternVariableStatement = ts.factory.createVariableStatement(
+    [],
+    ts.factory.createVariableDeclarationList(
+      [attrDeclaration],
+      ts.NodeFlags.Const,
+    ),
   );
   // Create the outer function call
   const outerCallee = ts.factory.createPropertyAccessExpression(
@@ -156,7 +285,7 @@ export function createFormatMessageExport() {
   const outerCall = ts.factory.createCallExpression(
     outerCallee,
     [],
-    [valueOfInnerCall, argsIdentifier, errorIdentifier],
+    [patternIdentifier, argsIdentifier, errorIdentifier],
   );
   // Create the if statement
   const argsIsNull = ts.factory.createStrictEquality(
@@ -183,7 +312,7 @@ export function createFormatMessageExport() {
     ),
     [],
     [
-      valueOfInnerCall,
+      patternIdentifier,
       ts.factory.createObjectLiteralExpression(),
       argsIdentifier,
     ],
@@ -196,7 +325,18 @@ export function createFormatMessageExport() {
   );
   // Create the return statement
   const returnStatement = ts.factory.createReturnStatement(outerCall);
-  const block = ts.factory.createBlock([ifStatement, returnStatement], true);
+  const block = ts.factory.createBlock(
+    [
+      attrIndexVariableStatement,
+      isAttributeVariableStatement,
+      messageIdVariableStatement,
+      messageVariableStatement,
+      patternVariableStatement,
+      ifStatement,
+      returnStatement,
+    ],
+    true,
+  );
   const functionName = ts.factory.createIdentifier('formatMessage');
   return ts.factory.createFunctionDeclaration(
     [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],

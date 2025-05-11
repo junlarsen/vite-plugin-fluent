@@ -5,4 +5,3 @@ export declare function formatMessage(bundle: FluentBundle, id: "dialog.descript
 export declare function formatMessage(bundle: FluentBundle, id: "dialog.confirm-text", args: {
     readonly "product-name": FluentVariable;
 }, error?: null | Error[]): string;
-w
