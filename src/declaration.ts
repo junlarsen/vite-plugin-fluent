@@ -1,4 +1,5 @@
 import {
+  type Attribute,
   Identifier,
   Message,
   type Resource,
@@ -108,29 +109,42 @@ export function createResourceDeclarationExport() {
  */
 export function createFormatMessageFunctionOverloadList(resource: Resource) {
   const messages = resource.body.filter((entry) => entry instanceof Message);
-  return messages
-    .map(createMessageType)
-    .filter((message) => message !== null)
-    .map(({ name, argumentType }) =>
-      createFormatMessageFunctionDeclaration(name, argumentType),
+  const overloads: ts.FunctionDeclaration[] = [];
+  for (const message of messages) {
+    const messageOverload = createFormatMessageOverload(
+      message.id.name,
+      message,
     );
+    if (messageOverload !== null) {
+      overloads.push(messageOverload);
+    }
+    const attributeOverloads = message.attributes
+      .map((attribute) => {
+        const name = `${message.id.name}.${attribute.id.name}`;
+        return createFormatMessageOverload(name, attribute);
+      })
+      .filter((overload) => overload !== null);
+    overloads.push(...attributeOverloads);
+  }
+  return overloads;
 }
 
 /**
  * Create the parameter type for a single message entry.
  */
-export function createMessageType(message: Message) {
-  if (message.value === null) {
+export function createFormatMessageOverload(
+  name: string,
+  object: Message | Attribute,
+) {
+  if (object.value === null) {
     return null;
   }
-  const name = message.id.name;
-
   const variables = new Map<string, ts.TypeNode>();
   const visitor = new ExpressionVisitor(variables);
-  visitor.visit(message);
+  visitor.visit(object.value);
   // If there are no arguments, we can early return
   if (variables.size === 0) {
-    return { argumentType: null, name };
+    return createFormatMessageFunctionDeclaration(name, null);
   }
   // Otherwise, map out each variable to a property, and build the object
   const properties = variables
@@ -145,7 +159,7 @@ export function createMessageType(message: Message) {
     })
     .toArray();
   const argumentType = ts.factory.createTypeLiteralNode(properties);
-  return { argumentType, name };
+  return createFormatMessageFunctionDeclaration(name, argumentType);
 }
 
 type TypeMetadata = {
@@ -215,7 +229,7 @@ class ExpressionVisitor extends Visitor {
 export function createFormatMessageFunctionDeclaration(
   name: string,
   type: ts.TypeNode | null,
-) {
+): ts.FunctionDeclaration {
   // Generate all the parameters
   const bundleIdentifier = ts.factory.createIdentifier('bundle');
   const bundleType = ts.factory.createTypeReferenceNode('FluentBundle', []);
