@@ -149,7 +149,7 @@ export function createMessageType(
     .map(([name, type]) => {
       return ts.factory.createPropertySignature(
         [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
-        name,
+        ts.factory.createStringLiteral(name),
         undefined,
         type,
       );
@@ -158,7 +158,7 @@ export function createMessageType(
   const argumentType = ts.factory.createTypeLiteralNode(properties);
   return ts.factory.createPropertySignature(
     [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
-    message.id.name,
+    ts.factory.createStringLiteral(message.id.name),
     undefined,
     argumentType,
   );

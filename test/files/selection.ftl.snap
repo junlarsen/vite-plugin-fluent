@@ -1,8 +1,8 @@
 import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
 export declare const resource: FluentResource;
 export declare type MessageSet = {
-    readonly cookies: {
-        readonly count: "one" | "other";
+    readonly "cookies": {
+        readonly "count": "one" | "other";
     };
 };
 export declare type MessageId = keyof MessageSet;

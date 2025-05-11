@@ -1,8 +1,8 @@
 import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
 export declare const resource: FluentResource;
 export declare type MessageSet = {
-    readonly greet: {
-        readonly name: FluentVariable;
+    readonly "greet": {
+        readonly "name": FluentVariable;
     };
 };
 export declare type MessageId = keyof MessageSet;

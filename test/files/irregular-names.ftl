@@ -1,0 +1,1 @@
+settings-and-preferences = Innstillinger
