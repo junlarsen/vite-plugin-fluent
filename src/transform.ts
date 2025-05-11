@@ -33,7 +33,7 @@ export function transformFluentFile(fluent: string): ts.SourceFile {
  * import { FluentResource, FluentBundle } from '@fluent/bundle';
  * ```
  */
-export function createFluentImport(isTypeOnly = false) {
+export function createFluentImport() {
   const fluentResource = ts.factory.createIdentifier('FluentResource');
   const fluentBundle = ts.factory.createIdentifier('FluentBundle');
   const fluentResourceImportSpecifier = ts.factory.createImportSpecifier(
@@ -51,7 +51,7 @@ export function createFluentImport(isTypeOnly = false) {
     fluentBundleImportSpecifier,
   ]);
   const importClause = ts.factory.createImportClause(
-    isTypeOnly,
+    false,
     undefined,
     namedImports,
   );

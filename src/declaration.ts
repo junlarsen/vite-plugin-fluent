@@ -1,6 +1,14 @@
-import { type Message, type Resource, parse } from '@fluent/syntax';
+import {
+  Identifier,
+  Message,
+  type Pattern,
+  Placeable,
+  type Resource,
+  SelectExpression,
+  VariableReference,
+  parse,
+} from '@fluent/syntax';
 import * as ts from 'typescript';
-import { createFluentImport } from './transform.js';
 
 /**
  * Generate the code for the TypeScript declaration file that will be generated
@@ -8,7 +16,7 @@ import { createFluentImport } from './transform.js';
  */
 export function generateFluentDeclaration(fluent: string): ts.SourceFile {
   const tree = parse(fluent, { withSpans: true });
-  const fluentImport = createFluentImport(true);
+  const fluentImport = createFluentTypeImport();
   const resourceDeclaration = createResourceDeclarationExport();
   const messageSetTypeDeclaration = createMessageSetTypeDeclaration(tree);
   const messageIdTypeDeclaration = createMessageIdTypeDeclaration();
@@ -24,6 +32,43 @@ export function generateFluentDeclaration(fluent: string): ts.SourceFile {
     ],
     ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
     ts.NodeFlags.None,
+  );
+}
+
+export function createFluentTypeImport() {
+  const fluentResource = ts.factory.createIdentifier('FluentResource');
+  const fluentBundle = ts.factory.createIdentifier('FluentBundle');
+  const fluentVariable = ts.factory.createIdentifier('FluentVariable');
+  const fluentResourceImportSpecifier = ts.factory.createImportSpecifier(
+    false,
+    undefined,
+    fluentResource,
+  );
+  const fluentBundleImportSpecifier = ts.factory.createImportSpecifier(
+    false,
+    undefined,
+    fluentBundle,
+  );
+  const fluentVariableImportSpecifier = ts.factory.createImportSpecifier(
+    false,
+    undefined,
+    fluentVariable,
+  );
+  const namedImports = ts.factory.createNamedImports([
+    fluentResourceImportSpecifier,
+    fluentBundleImportSpecifier,
+    fluentVariableImportSpecifier,
+  ]);
+  const importClause = ts.factory.createImportClause(
+    true,
+    undefined,
+    namedImports,
+  );
+  const importSource = ts.factory.createStringLiteral('@fluent/bundle');
+  return ts.factory.createImportDeclaration(
+    undefined,
+    importClause,
+    importSource,
   );
 }
 
@@ -71,8 +116,10 @@ export function createResourceDeclarationExport() {
  * ```
  */
 export function createMessageSetTypeDeclaration(resource: Resource) {
-  const messages = resource.body.filter((entry) => entry.type === 'Message');
-  const messageTypes = messages.map(createMessageType);
+  const messages = resource.body.filter((entry) => entry instanceof Message);
+  const messageTypes = messages
+    .map(createMessageType)
+    .filter((message) => message !== null);
   const mappedType = ts.factory.createTypeLiteralNode(messageTypes);
   return ts.factory.createTypeAliasDeclaration(
     [
@@ -88,14 +135,90 @@ export function createMessageSetTypeDeclaration(resource: Resource) {
 /**
  * Create the parameter type for a single message entry.
  */
-export function createMessageType(message: Message) {
-  const argumentType = ts.factory.createTypeLiteralNode([]);
+export function createMessageType(
+  message: Message,
+): ts.PropertySignature | null {
+  if (message.value === null) {
+    return null;
+  }
+  const patternVariables = getPatternVariables(message.value);
+  const properties = patternVariables
+    .entries()
+    .map(([name, type]) => {
+      return ts.factory.createPropertySignature(
+        [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
+        name,
+        undefined,
+        type,
+      );
+    })
+    .toArray();
+  const argumentType = ts.factory.createTypeLiteralNode(properties);
   return ts.factory.createPropertySignature(
     [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
     message.id.name,
     undefined,
     argumentType,
   );
+}
+
+function getPatternVariables(pattern: Pattern): Map<string, ts.TypeNode> {
+  const placeables = pattern.elements.filter(
+    (node) => node instanceof Placeable,
+  );
+  const variables = new Map<string, ts.TypeNode>();
+  for (const placeable of placeables) {
+    const expression = placeable.expression;
+    // If this is a select expression, we are only interested if the select
+    // value is a variable reference.
+    if (
+      expression instanceof SelectExpression &&
+      expression.selector instanceof VariableReference
+    ) {
+      const { type, patterns } = getSelectExpressionOptions(expression);
+      const name = expression.selector.id.name;
+      // TODO: Evaluate what to do with duplicate keys
+      variables.set(name, type);
+      // Flatten down the child patterns into a single map
+      for (const [key, value] of patterns) {
+        if (!variables.has(key)) {
+          variables.set(key, value);
+        }
+      }
+    } else if (expression instanceof VariableReference) {
+      const name = expression.id.name;
+      const type = ts.factory.createTypeReferenceNode('FluentVariable');
+      variables.set(name, type);
+    }
+  }
+  return variables;
+}
+
+function getSelectExpressionOptions(expression: SelectExpression) {
+  const options = expression.variants.map((variant) => {
+    const type = ts.factory.createLiteralTypeNode(
+      variant.key instanceof Identifier
+        ? ts.factory.createStringLiteral(variant.key.name)
+        : ts.factory.createNumericLiteral(variant.key.value),
+    );
+    const patterns = getPatternVariables(variant.value);
+    return { type, patterns };
+  });
+  // Compute a literal type union for the expression
+  const type = ts.factory.createUnionTypeNode(
+    options.map((option) => option.type),
+  );
+  // Flatten down the child patterns into a single map
+  const patterns = new Map<string, ts.TypeNode>();
+  for (const option of options) {
+    for (const [key, value] of option.patterns) {
+      // TODO: Consider what to do with duplicate keys
+      if (!patterns.has(key)) {
+        patterns.set(key, value);
+      }
+    }
+  }
+  return { type, patterns };
 }
 
 /**

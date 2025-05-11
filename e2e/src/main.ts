@@ -3,7 +3,7 @@ import { formatMessage, resource } from '../locale/fluent.ftl';
 
 const bundle = new FluentBundle('en-US');
 bundle.addResource(resource);
-const message = formatMessage(bundle, 'hello', {}, null);
+const message = formatMessage(bundle, 'hello', { name: 'warts' }, null);
 
 console.log(resource, bundle);
 const root = document.querySelector<HTMLDivElement>('#app');

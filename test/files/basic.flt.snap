@@ -1,0 +1,5 @@
+import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
+export declare const resource: FluentResource;
+export declare type MessageSet = {};
+export declare type MessageId = keyof MessageSet;
+export declare function formatMessage<K extends MessageId>(bundle: FluentBundle, id: K, args: MessageSet[K], error?: null | Error[]): string;
