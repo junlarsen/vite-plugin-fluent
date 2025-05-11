@@ -1,1 +1,1 @@
-hello = Hello world!
+hello = Hello

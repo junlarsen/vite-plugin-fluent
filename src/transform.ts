@@ -1,4 +1,3 @@
-import { parse } from '@fluent/syntax';
 import * as ts from 'typescript';
 
 /**
@@ -12,24 +11,13 @@ import * as ts from 'typescript';
  * go along with the generated JavaScript. This makes the .ftl files completely
  * type-safe, even though we are only exposing the plain Fluent APIs.
  */
-export async function transformFluentFile(
-  fluent: string,
-  file: string,
-  locale: string,
-): Promise<ts.SourceFile> {
-  const syntaxTree = parse(fluent, { withSpans: false });
+export function transformFluentFile(fluent: string): ts.SourceFile {
   const importDeclaration = createFluentImport();
   const resourceExport = createResourceExport(fluent);
-  const bundleExport = createBundleExport(locale);
-  const bundleResourceRegistration = createBundleResourceRegistration();
+  const formatMessageExport = createFormatMessageExport();
 
   return ts.factory.createSourceFile(
-    [
-      importDeclaration,
-      resourceExport,
-      bundleExport,
-      bundleResourceRegistration,
-    ],
+    [importDeclaration, resourceExport, formatMessageExport],
     ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
     ts.NodeFlags.None,
   );
@@ -45,7 +33,7 @@ export async function transformFluentFile(
  * import { FluentResource, FluentBundle } from '@fluent/bundle';
  * ```
  */
-export function createFluentImport() {
+export function createFluentImport(isTypeOnly = false) {
   const fluentResource = ts.factory.createIdentifier('FluentResource');
   const fluentBundle = ts.factory.createIdentifier('FluentBundle');
   const fluentResourceImportSpecifier = ts.factory.createImportSpecifier(
@@ -63,7 +51,7 @@ export function createFluentImport() {
     fluentBundleImportSpecifier,
   ]);
   const importClause = ts.factory.createImportClause(
-    false,
+    isTypeOnly,
     undefined,
     namedImports,
   );
@@ -110,54 +98,75 @@ export function createResourceExport(fluent: string) {
 }
 
 /**
- * Generate the top-level export for the `@fluent/bundle` FluentBundle value.
- *
- * This function generates something akin to the following TypeScript code.
+ * Generate the code for the formatMessage type-safe function.
  *
  * @example
  * ```
- * export const bundle = new FluentBundle('en-US');
+ * export function formatMessage(bundle, id, args, error) {
+ *   return bundle.formatPattern(bundle.getMessage(id), args, error);
+ * }
  * ```
  */
-export function createBundleExport(locale: string) {
-  const content = ts.factory.createStringLiteral(locale, true);
-  const className = ts.factory.createIdentifier('FluentBundle');
-  const constructorCall = ts.factory.createNewExpression(
-    className,
-    [],
-    [content],
-  );
-  const variableDeclaration = ts.factory.createVariableDeclaration(
-    'bundle',
-    undefined,
-    undefined,
-    constructorCall,
-  );
-  const variableDeclarationList = ts.factory.createVariableDeclarationList(
-    [variableDeclaration],
-    ts.NodeFlags.Const,
-  );
-  return ts.factory.createVariableStatement(
-    [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
-    variableDeclarationList,
-  );
-}
-
-/**
- * Create the code for the bundle.addResource call.
- *
- * @example
- * ```
- * bundle.addResource(resource);
- * ```
- */
-export function createBundleResourceRegistration() {
+export function createFormatMessageExport() {
   const bundleIdentifier = ts.factory.createIdentifier('bundle');
-  const resourceIdentifier = ts.factory.createIdentifier('resource');
-  const callExpression = ts.factory.createCallExpression(
-    ts.factory.createPropertyAccessExpression(bundleIdentifier, 'addResource'),
-    [],
-    [resourceIdentifier],
+  const idIdentifier = ts.factory.createIdentifier('id');
+  const argsIdentifier = ts.factory.createIdentifier('args');
+  const errorIdentifier = ts.factory.createIdentifier('error');
+  const bundleParameter = ts.factory.createParameterDeclaration(
+    undefined,
+    undefined,
+    bundleIdentifier,
   );
-  return ts.factory.createExpressionStatement(callExpression);
+  const idParameter = ts.factory.createParameterDeclaration(
+    undefined,
+    undefined,
+    idIdentifier,
+  );
+  const argsParameter = ts.factory.createParameterDeclaration(
+    undefined,
+    undefined,
+    argsIdentifier,
+  );
+  const errorParameter = ts.factory.createParameterDeclaration(
+    undefined,
+    undefined,
+    errorIdentifier,
+  );
+  // Create the inner function call
+  const innerCallee = ts.factory.createPropertyAccessExpression(
+    bundleIdentifier,
+    'getMessage',
+  );
+  const innerCall = ts.factory.createCallExpression(
+    innerCallee,
+    [],
+    [idIdentifier],
+  );
+  const valueOfInnerCall = ts.factory.createPropertyAccessExpression(
+    innerCall,
+    'value',
+  );
+  // Create the outer function call
+  const outerCallee = ts.factory.createPropertyAccessExpression(
+    bundleIdentifier,
+    'formatPattern',
+  );
+  const outerCall = ts.factory.createCallExpression(
+    outerCallee,
+    [],
+    [valueOfInnerCall, argsIdentifier, errorIdentifier],
+  );
+  // Create the return statement
+  const returnStatement = ts.factory.createReturnStatement(outerCall);
+  const block = ts.factory.createBlock([returnStatement], true);
+  const functionName = ts.factory.createIdentifier('formatMessage');
+  return ts.factory.createFunctionDeclaration(
+    [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)],
+    undefined,
+    functionName,
+    [],
+    [bundleParameter, idParameter, argsParameter, errorParameter],
+    undefined,
+    block,
+  );
 }

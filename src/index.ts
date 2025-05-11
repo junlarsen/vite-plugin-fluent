@@ -1,9 +1,10 @@
 import * as fs from 'node:fs/promises';
 import * as ts from 'typescript';
 import type { Plugin } from 'vite';
+import { generateFluentDeclaration } from './declaration.js';
 import { transformFluentFile } from './transform.js';
 
-const FTL_FILE_REGEX = /\.ftl\?locale=[A-Za-z-]+$/;
+const FTL_FILE_REGEX = /\.ftl$/;
 
 export function fluent(): Plugin {
   return {
@@ -12,25 +13,17 @@ export function fluent(): Plugin {
       if (!FTL_FILE_REGEX.test(id)) {
         return null;
       }
-      const segments = id.split('?');
-      if (segments.length !== 2) {
-        throw new Error(
-          'Invalid FTL file path, did you forget to add the `?locale=[locale]` query parameter?',
-        );
-      }
-      const [filePath, queryString] = segments;
-      const queryParams = new URLSearchParams(queryString);
-      const locale = queryParams.get('locale');
-      if (locale === null) {
-        throw new Error(
-          'Failed to extract locale from FTL file path, did you forget to add the `?locale=[locale]` query parameter?',
-        );
-      }
-      console.log(filePath);
-      const ftl = await fs.readFile(filePath, 'utf-8');
-      const node = await transformFluentFile(ftl, filePath, locale);
+      // Generate the JavaScript code for the FTL module
+      const ftl = await fs.readFile(id, 'utf-8');
+      const javascriptSource = transformFluentFile(ftl);
       const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
-      const typescript = printer.printFile(node);
+      const typescript = printer.printFile(javascriptSource);
+
+      // Generate the TypeScript declaration file for the FTL module
+      const declarationSource = generateFluentDeclaration(ftl);
+      const declarationPath = `${id}.d.ts`;
+      const declaration = printer.printFile(declarationSource);
+      await fs.writeFile(declarationPath, declaration, 'utf-8');
       return {
         code: typescript,
       };

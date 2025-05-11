@@ -1,4 +1,9 @@
-import { bundle, resource } from '../locale/fluent.ftl?locale=en-US';
+import { FluentBundle } from '@fluent/bundle';
+import { formatMessage, resource } from '../locale/fluent.ftl';
+
+const bundle = new FluentBundle('en-US');
+bundle.addResource(resource);
+const message = formatMessage(bundle, 'hello', {}, null);
 
 console.log(resource, bundle);
 const root = document.querySelector<HTMLDivElement>('#app');
@@ -8,6 +13,6 @@ if (!root) {
 
 root.innerHTML = `
   <div>
-  Hello world
+  Message says: ${message}
   </div>
 `;
