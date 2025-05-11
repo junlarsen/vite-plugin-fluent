@@ -7,7 +7,7 @@ const files = new URL('./files', import.meta.url);
 
 describe('declaration code generation', async () => {
   for (const file of await fs.readdir(files, { recursive: true })) {
-    if (!file.endsWith('.flt')) {
+    if (!file.endsWith('.ftl')) {
       continue;
     }
 
