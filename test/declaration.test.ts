@@ -3,7 +3,7 @@ import * as ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { generateFluentDeclaration } from '../src/declaration';
 
-const files = new URL('./files', import.meta.url);
+const files = new URL('./declaration', import.meta.url);
 
 describe('declaration code generation', async () => {
   for (const file of await fs.readdir(files, { recursive: true })) {
@@ -12,7 +12,7 @@ describe('declaration code generation', async () => {
     }
 
     it(`should translate ${file} to d.ts`, async () => {
-      const url = new URL(`./files/${file}`, import.meta.url);
+      const url = new URL(`./declaration/${file}`, import.meta.url);
       const flt = await fs.readFile(url, 'utf-8');
       const node = generateFluentDeclaration(flt);
       const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });

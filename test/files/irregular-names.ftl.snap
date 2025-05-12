@@ -1,3 +1,0 @@
-import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
-export declare const resource: FluentResource;
-export declare function formatMessage(bundle: FluentBundle, id: "settings-and-preferences", error?: null | Error[]): string;

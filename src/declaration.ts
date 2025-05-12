@@ -1,3 +1,4 @@
+import * as fs from 'node:fs/promises';
 import {
   type Attribute,
   Identifier,
@@ -10,58 +11,44 @@ import {
 } from '@fluent/syntax';
 import * as ts from 'typescript';
 
+const prelude = await fs.readFile(
+  new URL('./runtime/prelude.d.ts', import.meta.url),
+  'utf-8',
+);
+
 /**
  * Generate the code for the TypeScript declaration file that will be generated
  * for the .ftl file.
  */
 export function generateFluentDeclaration(fluent: string): ts.SourceFile {
   const tree = parse(fluent, { withSpans: true });
-  const fluentImport = createFluentTypeImport();
+  const inlinePrelude = createInlinePrelude();
   const resourceDeclaration = createResourceDeclarationExport();
-  const formatMessageFunctionOverloadList =
-    createFormatMessageFunctionOverloadList(tree);
+  const resourceMessageArgsType = createResourceMessageArgsType(tree);
+  const formatMessageType = createFormatMessageType();
+  const formatMessageExport = createFormatMessageExport();
   return ts.factory.createSourceFile(
-    [fluentImport, resourceDeclaration, ...formatMessageFunctionOverloadList],
+    [
+      ...inlinePrelude,
+      resourceDeclaration,
+      resourceMessageArgsType,
+      formatMessageType,
+      formatMessageExport,
+    ],
     ts.factory.createToken(ts.SyntaxKind.EndOfFileToken),
     ts.NodeFlags.None,
   );
 }
 
-export function createFluentTypeImport() {
-  const fluentResource = ts.factory.createIdentifier('FluentResource');
-  const fluentBundle = ts.factory.createIdentifier('FluentBundle');
-  const fluentVariable = ts.factory.createIdentifier('FluentVariable');
-  const fluentResourceImportSpecifier = ts.factory.createImportSpecifier(
+export function createInlinePrelude() {
+  const preludeSource = ts.createSourceFile(
+    'prelude.d.ts',
+    prelude,
+    ts.ScriptTarget.Latest,
     false,
-    undefined,
-    fluentResource,
+    ts.ScriptKind.TS,
   );
-  const fluentBundleImportSpecifier = ts.factory.createImportSpecifier(
-    false,
-    undefined,
-    fluentBundle,
-  );
-  const fluentVariableImportSpecifier = ts.factory.createImportSpecifier(
-    false,
-    undefined,
-    fluentVariable,
-  );
-  const namedImports = ts.factory.createNamedImports([
-    fluentResourceImportSpecifier,
-    fluentBundleImportSpecifier,
-    fluentVariableImportSpecifier,
-  ]);
-  const importClause = ts.factory.createImportClause(
-    true,
-    undefined,
-    namedImports,
-  );
-  const importSource = ts.factory.createStringLiteral('@fluent/bundle');
-  return ts.factory.createImportDeclaration(
-    undefined,
-    importClause,
-    importSource,
-  );
+  return preludeSource.statements;
 }
 
 /**
@@ -107,9 +94,9 @@ export function createResourceDeclarationExport() {
  * }
  * ```
  */
-export function createFormatMessageFunctionOverloadList(resource: Resource) {
+export function createResourceMessageArgsType(resource: Resource) {
   const messages = resource.body.filter((entry) => entry instanceof Message);
-  const overloads: ts.FunctionDeclaration[] = [];
+  const overloads: ts.PropertySignature[] = [];
   for (const message of messages) {
     const messageOverload = createFormatMessageOverload(
       message.id.name,
@@ -126,7 +113,16 @@ export function createFormatMessageFunctionOverloadList(resource: Resource) {
       .filter((overload) => overload !== null);
     overloads.push(...attributeOverloads);
   }
-  return overloads;
+  const type = ts.factory.createTypeLiteralNode(overloads);
+  return ts.factory.createTypeAliasDeclaration(
+    [
+      ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
+      ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword),
+    ],
+    ts.factory.createIdentifier('ResourceMessageArgs'),
+    undefined,
+    type,
+  );
 }
 
 /**
@@ -135,7 +131,7 @@ export function createFormatMessageFunctionOverloadList(resource: Resource) {
 export function createFormatMessageOverload(
   name: string,
   object: Message | Attribute,
-) {
+): ts.PropertySignature | null {
   if (object.value === null) {
     return null;
   }
@@ -144,7 +140,7 @@ export function createFormatMessageOverload(
   visitor.visit(object.value);
   // If there are no arguments, we can early return
   if (variables.size === 0) {
-    return createFormatMessageFunctionDeclaration(name, null);
+    return createResourceMessageArgOverload(name, null);
   }
   // Otherwise, map out each variable to a property, and build the object
   const properties = variables
@@ -159,7 +155,7 @@ export function createFormatMessageOverload(
     })
     .toArray();
   const argumentType = ts.factory.createTypeLiteralNode(properties);
-  return createFormatMessageFunctionDeclaration(name, argumentType);
+  return createResourceMessageArgOverload(name, argumentType);
 }
 
 type TypeMetadata = {
@@ -213,87 +209,60 @@ class ExpressionVisitor extends Visitor {
   }
 }
 
+export function createResourceMessageArgOverload(
+  name: string,
+  type: ts.TypeNode | null,
+): ts.PropertySignature {
+  // Create the function itself
+  return ts.factory.createPropertySignature(
+    [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
+    ts.factory.createStringLiteral(name),
+    undefined,
+    type ?? ts.factory.createTypeReferenceNode('never'),
+  );
+}
+
 /**
- * Create the function declaration for the `formatMessage` function.
+ * Create the FormatMessage type alias.
  *
  * @example
  * ```
- * export declare function formatMessage(
- *  bundle: FluentBundle,
- *  id: <name>,
- *  args: <type>,
- *  errors?: null | Error[],
- * ): string
+ * export declare type FormatMessage = InferFormatterType<ResourceMessageArgs>;
  * ```
  */
-export function createFormatMessageFunctionDeclaration(
-  name: string,
-  type: ts.TypeNode | null,
-): ts.FunctionDeclaration {
-  // Generate all the parameters
-  const bundleIdentifier = ts.factory.createIdentifier('bundle');
-  const bundleType = ts.factory.createTypeReferenceNode('FluentBundle', []);
-  const idIdentifier = ts.factory.createIdentifier('id');
-  const idType = ts.factory.createLiteralTypeNode(
-    ts.factory.createStringLiteral(name),
-  );
-  const errorIdentifier = ts.factory.createIdentifier('error');
-  const nullLiteralType = ts.factory.createLiteralTypeNode(
-    ts.factory.createNull(),
-  );
-  const errorConstructorType = ts.factory.createTypeReferenceNode('Error', []);
-  const errorArrayType = ts.factory.createArrayTypeNode(errorConstructorType);
-  const errorType = ts.factory.createUnionTypeNode([
-    nullLiteralType,
-    errorArrayType,
+export function createFormatMessageType() {
+  const type = ts.factory.createTypeReferenceNode('InferFormatterType', [
+    ts.factory.createTypeReferenceNode('ResourceMessageArgs'),
   ]);
-  const bundleParameter = ts.factory.createParameterDeclaration(
-    undefined,
-    undefined,
-    bundleIdentifier,
-    undefined,
-    bundleType,
-  );
-  const idParameter = ts.factory.createParameterDeclaration(
-    undefined,
-    undefined,
-    idIdentifier,
-    undefined,
-    idType,
-  );
-  const errorParameter = ts.factory.createParameterDeclaration(
-    undefined,
-    undefined,
-    errorIdentifier,
-    ts.factory.createToken(ts.SyntaxKind.QuestionToken),
-    errorType,
-  );
-  // If the type is not null, we inject the args parameter.
-  const parameters = [bundleParameter, idParameter];
-  if (type !== null) {
-    const argsIdentifier = ts.factory.createIdentifier('args');
-    const argsParameter = ts.factory.createParameterDeclaration(
-      undefined,
-      undefined,
-      argsIdentifier,
-      undefined,
-      type,
-    );
-    parameters.push(argsParameter);
-  }
-  parameters.push(errorParameter);
-
-  // Create the function itself
-  return ts.factory.createFunctionDeclaration(
+  return ts.factory.createTypeAliasDeclaration(
     [
       ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
       ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword),
     ],
+    ts.factory.createIdentifier('FormatMessage'),
     undefined,
-    'formatMessage',
-    [],
-    parameters,
-    ts.factory.createKeywordTypeNode(ts.SyntaxKind.StringKeyword),
+    type,
+  );
+}
+
+export function createFormatMessageExport() {
+  const formatMessage = ts.factory.createIdentifier('formatMessage');
+  const type = ts.factory.createTypeReferenceNode('FormatMessage', []);
+  const variableDeclaration = ts.factory.createVariableDeclaration(
+    formatMessage,
     undefined,
+    type,
+    undefined,
+  );
+  const variableDeclarationList = ts.factory.createVariableDeclarationList(
+    [variableDeclaration],
+    ts.NodeFlags.Const,
+  );
+  return ts.factory.createVariableStatement(
+    [
+      ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
+      ts.factory.createModifier(ts.SyntaxKind.DeclareKeyword),
+    ],
+    variableDeclarationList,
   );
 }

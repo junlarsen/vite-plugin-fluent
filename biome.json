@@ -17,6 +17,7 @@
       "correctness": {
         "noUnusedImports": "error"
       }
-    }
+    },
+    "ignore": ["./src/runtime/prelude.d.ts", "**/*.ftl.d.ts"]
   }
 }

@@ -151,4 +151,4 @@ The project is licensed under the [Apache 2.0 License][license]
 [selector]: https://projectfluent.org/fluent/guide/selectors.html
 [license]: ./LICENSE
 [e2e]: ./e2e
-[integration]: ./test/files
+[integration]: ./test/declaration

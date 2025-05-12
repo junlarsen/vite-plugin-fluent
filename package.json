@@ -2,11 +2,7 @@
   "name": "vite-plugin-fluent",
   "version": "0.1.0",
   "description": "Vite plugin for type-safe function code generation for Fluent Translation files",
-  "keywords": [
-    "vite-plugin",
-    "fluent",
-    "i18n"
-  ],
+  "keywords": ["vite-plugin", "fluent", "i18n"],
   "author": "Mats Jun Larsen <mats@jun.codes> (https://jun.codes)",
   "repository": "github:junlarsen/vite-plugin-fluent",
   "homepage": "https://github.com/junlarsen/vite-plugin-fluent",
@@ -25,7 +21,8 @@
   "scripts": {
     "lint": "biome check . --write",
     "test": "vitest run",
-    "build": "tsc"
+    "build": "tsc && cp ./src/runtime ./dist/src/ -r",
+    "prepublish": "pnpm build"
   },
   "packageManager": "pnpm@10.7.1",
   "devDependencies": {

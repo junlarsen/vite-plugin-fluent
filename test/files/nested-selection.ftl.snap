@@ -1,6 +1,0 @@
-import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
-export declare const resource: FluentResource;
-export declare function formatMessage(bundle: FluentBundle, id: "cookies", args: {
-    readonly "count": "one" | "other";
-    readonly "day": "monday" | "other";
-}, error?: null | Error[]): string;

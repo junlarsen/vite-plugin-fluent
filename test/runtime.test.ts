@@ -1,3 +1,4 @@
+import * as fs from 'node:fs/promises';
 import { FluentBundle } from '@fluent/bundle';
 import { importFromString } from 'module-from-string';
 import * as ts from 'typescript';
@@ -47,4 +48,23 @@ describe('runtime code', () => {
     });
     expect(output).toMatchInlineSnapshot(`"Hello again!"`);
   });
+});
+
+const files = new URL('./runtime', import.meta.url);
+describe('runtime code generation', async () => {
+  for (const file of await fs.readdir(files, { recursive: true })) {
+    if (!file.endsWith('.ftl')) {
+      continue;
+    }
+
+    it(`should translate ${file} to d.ts`, async () => {
+      const url = new URL(`./runtime/${file}`, import.meta.url);
+      const flt = await fs.readFile(url, 'utf-8');
+      const node = transformFluentFile(flt);
+      const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+      await expect(printer.printFile(node)).toMatchFileSnapshot(
+        `${url.pathname}.snap`,
+      );
+    });
+  }
 });

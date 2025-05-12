@@ -1,5 +1,0 @@
-import type { FluentResource, FluentBundle, FluentVariable } from "@fluent/bundle";
-export declare const resource: FluentResource;
-export declare function formatMessage(bundle: FluentBundle, id: "translation", args: {
-    readonly "name": FluentVariable;
-}, error?: null | Error[]): string;

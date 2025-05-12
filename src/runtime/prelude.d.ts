@@ -3,6 +3,7 @@ import type {
   FluentResource,
   FluentVariable,
 } from '@fluent/bundle';
+
 declare type UnionToIntersection<T> = (
   T extends any
     ? (x: T) => void
@@ -10,6 +11,7 @@ declare type UnionToIntersection<T> = (
 ) extends (x: infer Inner) => void
   ? Inner
   : never;
+
 declare type InferFormatterType<T extends Record<PropertyKey, unknown>> =
   UnionToIntersection<
     {
@@ -23,14 +25,3 @@ declare type InferFormatterType<T extends Record<PropertyKey, unknown>> =
           ) => string;
     }[keyof T]
   >;
-export declare const resource: FluentResource;
-export declare type ResourceMessageArgs = {
-  readonly hello: {
-    readonly name: FluentVariable;
-  };
-  readonly cookies: {
-    readonly count: 'one' | 'other';
-  };
-};
-export declare type FormatMessage = InferFormatterType<ResourceMessageArgs>;
-export declare const formatMessage: FormatMessage;
