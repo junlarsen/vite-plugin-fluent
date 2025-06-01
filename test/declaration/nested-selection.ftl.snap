@@ -6,8 +6,8 @@ declare type InferFormatterType<T extends Record<PropertyKey, unknown>> = UnionT
 export declare const resource: FluentResource;
 export declare type ResourceMessageArgs = {
     readonly "cookies": {
-        readonly "count": "one" | "other";
-        readonly "day": "monday" | "other";
+        readonly "count": FluentVariable;
+        readonly "day": FluentVariable;
     };
 };
 export declare type FormatMessage = InferFormatterType<ResourceMessageArgs>;

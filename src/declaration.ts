@@ -1,11 +1,9 @@
 import * as fs from 'node:fs/promises';
 import {
   type Attribute,
-  Identifier,
   Message,
   type Resource,
-  type SelectExpression,
-  VariableReference,
+  type VariableReference,
   Visitor,
   parse,
 } from '@fluent/syntax';
@@ -167,31 +165,6 @@ class ExpressionVisitor extends Visitor {
     const name = node.id.name;
     if (!this.variables.has(name)) {
       this.variables.set(name, type);
-    }
-  }
-  visitSelectExpression(node: SelectExpression) {
-    // If this value is guided by a variable, we create a union type of all the possible values
-    if (node.selector instanceof VariableReference) {
-      const unionMembers = node.variants.map((variant) =>
-        ts.factory.createLiteralTypeNode(
-          variant.key instanceof Identifier
-            ? ts.factory.createStringLiteral(variant.key.name)
-            : ts.factory.createNumericLiteral(variant.key.value),
-        ),
-      );
-      const union = ts.factory.createUnionTypeNode(unionMembers);
-      const name = node.selector.id.name;
-
-      const existing = this.variables.get(name);
-      if (existing === undefined) {
-        this.variables.set(name, union);
-      }
-    }
-
-    // Traverse into the children of the select expression
-    super.visit(node.selector);
-    for (const variant of node.variants) {
-      super.visit(variant.value);
     }
   }
 }
