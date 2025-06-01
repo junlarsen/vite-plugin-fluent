@@ -1,8 +1,12 @@
 {
   "name": "vite-plugin-fluent",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Vite plugin for type-safe function code generation for Fluent Translation files",
-  "keywords": ["vite-plugin", "fluent", "i18n"],
+  "keywords": [
+    "vite-plugin",
+    "fluent",
+    "i18n"
+  ],
   "author": "Mats Jun Larsen <mats@jun.codes> (https://jun.codes)",
   "repository": "github:junlarsen/vite-plugin-fluent",
   "homepage": "https://github.com/junlarsen/vite-plugin-fluent",
