@@ -158,12 +158,7 @@ export function createFormatMessageOverload(
   return createResourceMessageArgOverload(name, argumentType);
 }
 
-type TypeMetadata = {
-  isDiscoveredSelect: boolean;
-};
-
 class ExpressionVisitor extends Visitor {
-  private readonly metadata: Map<string, TypeMetadata> = new Map();
   public constructor(private readonly variables: Map<string, ts.TypeNode>) {
     super();
   }
@@ -172,7 +167,6 @@ class ExpressionVisitor extends Visitor {
     const name = node.id.name;
     if (!this.variables.has(name)) {
       this.variables.set(name, type);
-      this.metadata.set(name, { isDiscoveredSelect: false });
     }
   }
   visitSelectExpression(node: SelectExpression) {
@@ -189,16 +183,9 @@ class ExpressionVisitor extends Visitor {
       const name = node.selector.id.name;
 
       const existing = this.variables.get(name);
-      const existingMetadata = this.metadata.get(name);
-      if (existing === undefined && existingMetadata === undefined) {
-        this.variables.set(name, union);
-      } else if (existingMetadata?.isDiscoveredSelect === false) {
-        // If this has been explored before, we now know that this is a select expression,
-        // and we now override the type to be a union of all the possible values
+      if (existing === undefined) {
         this.variables.set(name, union);
       }
-
-      this.metadata.set(name, { isDiscoveredSelect: true });
     }
 
     // Traverse into the children of the select expression

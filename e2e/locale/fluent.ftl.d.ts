@@ -29,7 +29,7 @@ export declare type ResourceMessageArgs = {
     readonly name: FluentVariable;
   };
   readonly cookies: {
-    readonly count: 'one' | 'other';
+    readonly count: FluentVariable;
   };
 };
 export declare type FormatMessage = InferFormatterType<ResourceMessageArgs>;

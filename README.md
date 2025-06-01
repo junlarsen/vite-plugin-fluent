@@ -53,26 +53,9 @@ const message = formatMessage(bundle, "greet", { name: "World", age: 42 });
 const message = formatMessage(bundle, "welcome", { name: "World" });
 ```
 
-## Selection Narrowing
-
-By default, all variables are inferred as `FluentVariable` exported from 
-`@fluent/bundle`. This means we can pass strings, dates, numbers, and even
-Temporal objects. The extended `FluentType<T>` is also supported.
-
-However, if the variable is used in a [selector][selector], the plugin will
-narrow the type down to the alternatives presented in the selector.
-
-```ftl
-apples = I have { $count ->
-    [one] one apple
-   *[many] { $count } apples
-}
-```
-
-```ts
-// count is narrowed to the type 'one' | 'many'
-formatMessage(bundle, "apples", { count: "one" });
-```
+The generated types accept `FluentVariable` from `@fluent/bundle` as the input
+to all message functions. This means we can pass strings, dates, numbers, and
+even temporal objects. It also supports `FluentType<T>`.
 
 ## Zero argument inference
 
