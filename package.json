@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-fluent",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Vite plugin for type-safe function code generation for Fluent Translation files",
   "keywords": [
     "vite-plugin",
