@@ -2,10 +2,10 @@ import * as fs from 'node:fs/promises';
 import {
   type Attribute,
   Message,
+  parse,
   type Resource,
   type VariableReference,
   Visitor,
-  parse,
 } from '@fluent/syntax';
 import * as ts from 'typescript';
 

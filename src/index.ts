@@ -9,7 +9,7 @@ const FTL_FILE_REGEX = /\.ftl$/;
 export function fluent(): Plugin {
   return {
     name: 'vite-plugin-fluent',
-    transform: async (source, id) => {
+    transform: async (_source, id) => {
       if (!FTL_FILE_REGEX.test(id)) {
         return null;
       }
