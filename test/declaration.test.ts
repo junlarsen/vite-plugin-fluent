@@ -13,8 +13,8 @@ describe('declaration code generation', async () => {
 
     it(`should translate ${file} to d.ts`, async () => {
       const url = new URL(`./declaration/${file}`, import.meta.url);
-      const flt = await fs.readFile(url, 'utf-8');
-      const node = generateFluentDeclaration(flt);
+      const ftl = await fs.readFile(url, 'utf-8');
+      const node = generateFluentDeclaration(ftl);
       const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
       await expect(printer.printFile(node)).toMatchFileSnapshot(
         `${url.pathname}.snap`,
